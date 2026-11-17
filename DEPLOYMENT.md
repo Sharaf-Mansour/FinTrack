@@ -25,9 +25,9 @@ bun run preview
 
 ## Data migration to the hosted app
 
-Before switching from localhost or another domain, export JSON using **Backup & data**. Open the production domain and import that file. Different origins—including localhost, Vercel preview deployments and your final domain—have separate IndexedDB databases and service-worker caches. Changing the domain does not automatically move financial records. Close older app tabs and apply the update prompt before editing schema-v7 data.
+Before switching from localhost or another domain, export JSON using **Backup & data**. Open the production domain and import that file. Different origins—including localhost, Vercel preview deployments and your final domain—have separate IndexedDB databases and service-worker caches. Changing the domain does not automatically move financial records. Close older app tabs and apply the update prompt before editing schema-v9 data.
 
-V7 backups include entries, named allocation plans, transfers, opening funds, expected income, wishlist, investments, investment events, recurring schedules and monthly payment links. V1–v6 backups migrate without inventing records. A replacement restores exactly the fields the older version supports and clears newer collections; export current data first. Merges keep current matching IDs, but conflicting plan revisions, duplicate monthly payments or inconsistent cash links reject the complete import rather than silently changing balances.
+V9 backups include entries, named percentage/fixed-amount allocation plans, transfers, opening funds, expected income, wishlist, investments, investment events, recurring schedules, optional remaining balances and monthly payment links. V1–v8 backups migrate without inventing records or remaining balances. A replacement restores exactly the fields the older version supports and clears newer collections; export current data first. Merges keep current matching IDs and apply newly merged tracked payments once; incompatible balance tracking, conflicting plan revisions, duplicate monthly payments or inconsistent cash links reject the complete import.
 
 ## Caching and security settings
 
@@ -53,7 +53,7 @@ Commit the updated lockfile after checks. Avoid `bun update --latest`: it overri
 
 ## Release acceptance and current limits
 
-Automated results on 2026-11-17: 79 tests / 2,320 assertions pass; Svelte/TypeScript checks and production artifact verification pass. The generated worker precaches 17 resources (~787 KiB). The earlier dependency audit and frozen install passed; neither was rerun for the allocation/monthly-spending update.
+Previous v7 results on 2026-11-17: 79 tests / 2,320 assertions passed; Svelte/TypeScript checks and production artifact verification passed. For v8 and v9, tests were not run at the user's request. The v9 production build and Svelte/TypeScript checks passed, with 17 resources (~793 KiB) precached. The earlier dependency audit and frozen install were not rerun.
 
 No Vercel deployment was created in this task. GitHub CI was written but has not run on a hosted Linux runner. Browser approval was granted for the current checks: allocation/income/monthly-payment workflows and mobile widths were exercised, and the production preview reloaded and persisted a schedule under offline emulation. Chart controls, actual deployed headers/CSP, physical installation and airplane-mode launch remain unverified. They are tracked in `TASKS_HUMAN.md`.
 
