@@ -14,7 +14,7 @@ Work one task at a time. `[x]` means completed with evidence; `[ ]` means outsta
 - [x] 08 — Add JSON export, validated import preview, merge and explicit replace flows.
 - [x] 09 — Configure offline PWA, manifest, install icons, native install prompt and update prompt.
 - [x] 10 — Run domain/persistence tests and resolve type/build failures: 10 tests, 43 assertions, zero checker errors/warnings, production PWA build passed.
-- [ ] 11 — Verify browser workflows, responsive layout and production offline reload. BLOCKED: origin approval gate denied browser access to localhost preview; do not claim visual/offline verification. Resume when browser access is granted.
+- [x] 11 — Verify browser workflows, responsive layout and production offline reload. Previously blocked by the origin approval gate; later access was granted. Selected workflows and 320/390px layouts were exercised, and the production preview reloaded with uncached requests blocked under offline emulation. Physical-device acceptance remains pending.
 - [x] 12 — Finalize README, verification evidence, and human-only acceptance checklist; browser/device checks are explicitly pending.
 
 ## Phase 2 — authorized 2026-11-17
@@ -50,6 +50,26 @@ Implementation defaults: monthly budget limits reset without rollover; actual ac
 - [x] 04 — Build optional investment management, event CRUD/linking, valuation and ROI interfaces in the existing dark mobile UI. Investment screen, confirmed deletion choices and mobile More menu are wired; Svelte/TS checks pass.
 - [x] 05 — Harden atomic persistence, update/error behavior, and static Vercel deployment with caching/security headers and release checks. Added atomic IndexedDB mutations, Vercel config, Bun release/asset validation and CSP-compatible static output checks.
 - [x] 06 — Complete tests, dependency audit and production checks; document deployment and actual verification limits. 63 tests / 2,241 assertions pass; Bun release/check/build/artifact verification and frozen install pass; audit finds no vulnerabilities after glob override. Deployment guide and manual acceptance checklist updated.
+
+## Income and monthly spending update — authorized 2026-11-17
+
+- [x] 01 — Add selectable and custom income types without changing existing records. Existing entry categories are retained; `bun run check` passes with zero diagnostics.
+- [x] 02 — Support adding, editing and deleting allocation buckets while preserving historical plans, spending and backups. Dated allocation snapshots retain stable bucket IDs; 66 tests / 2,255 assertions and production build pass with zero Svelte/TypeScript diagnostics.
+- [x] 03 — Add reusable monthly installment tasks with required end dates, salary reminders and explicit payment-to-spending/bucket links with validated backups. `bun run release`: 79 tests / 2,320 assertions, clean Svelte/TypeScript checks and verified production artifacts; browser exercised allocation, income, payments, end dates, backup merge and responsive layout, and production preview saved/reloaded a schedule under offline emulation.
+- [x] 04 — Update the plan, usage/deployment documentation and human acceptance checks with current behavior and verification evidence. README, PLAN, DEPLOYMENT and TASKS_HUMAN describe v7 migration, schedule end dates and pending device/deployment acceptance; `git diff --check` passes.
+
+## Allocation amounts and production loading — authorized 2026-11-17
+
+- [x] 01 — Support percentage or fixed EGP allocations and improve plan-page resilience without changing existing financial records. Fixed-amount support, an older-browser compatibility change and a rendering error boundary are implemented; `bun run build` and Svelte/TypeScript checks pass. Tests were not run as requested. The original phone-specific failure remains unconfirmed without device details.
+- [x] 02 — Allow new and existing monthly schedules to have no end date, without changing dated schedules or recording payments automatically. `bun run build` and Svelte/TypeScript checks pass; tests were not run as requested.
+
+## Monthly remaining balances — authorized 2026-11-17
+
+- [x] 01 — Add optional remaining balances to monthly schedules, update them with linked payment changes, and show them on payment cards. Schema v9 preserves older records and reconciles tracked payments and imports; `bun run build` passes with zero Svelte/TypeScript diagnostics. Tests were not run as requested.
+
+## Fixed mobile viewport — authorized 2026-11-17
+
+- [x] 01 — Disable viewport scaling and pinch-to-zoom on mobile. `index.html` sets `maximum-scale=1` and `user-scalable=no`; `bun test` passes (82 tests / 2,333 assertions), `bun run build` passes with zero Svelte/TypeScript diagnostics, and the production HTML contains the viewport settings.
 
 ## Roadmap status
 
@@ -104,3 +124,14 @@ Implementation defaults: monthly budget limits reset without rollover; actual ac
 - Initial audit found moderate build-only glob/minimatch advisories in Workbox. Range-preserving audit fix could not resolve them. Added `glob: latest` override (14.0.6 / minimatch 11.0.9); generated PWA/asset checks pass; final `bun audit` reports no vulnerabilities (445 checked packages). No remaining audit issue was concealed.
 - Added Vercel static/Bun config, cache/security/CSP headers, extensionless fallback, release script/artifact verifier and GitHub Actions (checkout v7/setup-bun v2). DEPLOYMENT.md includes official configuration references and human acceptance.
 - No deployment created; hosted CI, real HTTP headers/CSP, interactive browser, native install and airplane-mode behavior remain unverified. The previous browser-origin denial was not retried or bypassed.
+
+## Income and monthly spending verification log — 2026-11-17
+
+- Schema v7 adds named allocation snapshots and linked recurring schedules/payments. Older plans and records migrate without fabricated entries; v6 end months become their last calendar dates, and legacy open-ended schedules remain open-ended until edited.
+- `bun run release`: 79 tests / 2,320 assertions pass; Svelte/TypeScript checks and production artifact verification pass with zero warnings/errors. The worker precaches 17 resources (~787 KiB).
+- Browser checks covered allocation CRUD and historical labels, income types, salary reminders, schedule/bucket assignment, explicit payment recording/undo/deletion, cross-month state, exact end-date boundaries, backup merge and 320/390px layouts. Disposable test data was removed.
+- The production preview's service worker controlled the app; an uncached request failed while offline emulation was active, and a schedule was saved and persisted across an offline reload. The test schedule was removed. Actual device installation/airplane mode, hosted CI and Vercel deployment/headers remain pending.
+
+## Viewport verification log — 2026-11-17
+
+- Added a fixed initial scale and disabled user scaling in the viewport metadata. `bun test` passes (82 tests / 2,333 assertions), `bun run build` passes with zero Svelte/TypeScript diagnostics, and the emitted production HTML contains the updated viewport declaration.

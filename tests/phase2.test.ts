@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  accountBalances, addPlan, allocateIncome, budgetForMonth, defaultShares, emptyLedger,
-  localDateTime, mergeLedgers, occurrenceTime, parsePercent, planForMonth, totals, validateLedger,
+  accountBalances, addAllocationPlan, addPlan, allocateIncome, allocationsForMonth, budgetForMonth, bucketLabelForMonth, defaultShares, emptyLedger,
+  localDateTime, mergeLedgers, occurrenceTime, parsePercent, planForMonth, spendingBucketsForMonth, totals, validateLedger,
   type Entry, type Ledger, type OpeningBalance, type Transfer
 } from '../src/lib/finance';
 
@@ -56,6 +56,29 @@ describe('schema migration and portable backups', () => {
 });
 
 describe('versioned allocation plans', () => {
+  test('custom allocations reconcile, retain history, and survive backup roundtrips', () => {
+    const original = allocationsForMonth(emptyLedger(), '2026-11');
+    const december = addAllocationPlan({ ...emptyLedger(), entries: [income()] }, '2026-12', [...original, { id: 'rent', name: 'Rent', share: 1000 }]);
+    const revised = addAllocationPlan(december, '2027-01', december.plans[0].allocations.filter(allocation => allocation.id !== 'rent').map(allocation => allocation.id === 'life' ? { ...allocation, name: 'Essentials' } : allocation));
+    const expense = { ...income('rent-expense', 3000), kind: 'expense' as const, bucket: 'rent', occurredAt: '2027-01-10T10:00:00.000Z' };
+    const ledger = validateLedger({ ...revised, entries: [...revised.entries, expense] });
+    expect(allocationsForMonth(ledger, '2026-12').some(allocation => allocation.id === 'rent')).toBe(true);
+    expect(spendingBucketsForMonth(ledger, '2027-01').some(allocation => allocation.id === 'rent')).toBe(false);
+    expect(bucketLabelForMonth(ledger, 'rent', '2027-01')).toBe('Rent');
+    expect(bucketLabelForMonth(ledger, 'life', '2027-01')).toBe('Essentials');
+    expect(budgetForMonth(ledger, '2027-01').spent.rent).toBe(3000);
+    expect(validateLedger(JSON.parse(JSON.stringify(ledger)))).toEqual(ledger);
+    const targets = budgetForMonth({ ...ledger, entries: [{ ...income(), occurredAt: '2026-12-10T10:00:00.000Z' }] }, '2026-12').targets;
+    expect(targets.rent).toBe(10000);
+    expect(Object.values(targets).reduce((sum, value) => sum + value, 0)).toBe(100000);
+  });
+  test('rejects invalid custom allocations and unknown spending buckets', () => {
+    const defaults = allocationsForMonth(emptyLedger(), '2026-11');
+    for (const extra of [{ id: 'rent', name: 'Rent', share: 1001 }, { id: 'life', name: 'Different', share: 0 }, { id: 'rent', name: 'Fun', share: 0 }, { id: 'constructor', name: 'Unsafe', share: 0 }]) {
+      expect(() => addAllocationPlan(emptyLedger(), '2026-11', [...defaults, extra])).toThrow();
+    }
+    expect(() => validateLedger({ ...emptyLedger(), entries: [{ ...income(), kind: 'expense', bucket: 'missing' }] })).toThrow('unknown allocation');
+  });
   test('defaults preserve the unallocated 10% and multiple incomes reconcile', () => {
     const b = budgetForMonth({ ...emptyLedger(), entries: [income('a', 10000), income('b', 20000)] }, '2026-11');
     expect(b.targets).toEqual({ life: 16500, fun: 1500, savings: 4500, investment: 4500, unallocated: 3000 });

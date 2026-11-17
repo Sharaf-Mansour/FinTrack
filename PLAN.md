@@ -1,6 +1,6 @@
 # FinTrack implementation plan
 
-Status: Phases 1–4 implemented. Phase 4 and production preparation for Vercel authorized on 2026-11-17. Automated tests, dependency audit and production release checks pass. Deployment, hosted CI and interactive browser/device acceptance remain pending. Phase 5 is planned, not implemented.
+Status: Phases 1–4 and the authorized allocation/monthly-spending update are implemented. The previous release checks passed; the latest changes have a passing production build but were not tested at the user's request. Deployment, hosted CI and physical-device acceptance remain pending. Phase 5 is planned, not implemented.
 
 ## Product
 
@@ -155,6 +155,27 @@ Storage mutations now read, transform, validate and write in one IndexedDB read/
 Verification: 63 tests / 2,241 assertions pass, zero Svelte/TypeScript warnings/errors, release artifact check passes, frozen install succeeds, and audit reports no vulnerabilities in 445 checked packages. The PWA precaches 17 resources (~753 KiB). No Vercel deployment or hosted Linux CI run was performed. Interactive UI, actual deployed headers/CSP, native installation and offline launch remain unverified under the prior browser-origin restriction; no bypass was attempted. Manual checks remain in `TASKS_HUMAN.md`.
 
 Exit: each example above computes correctly; optional investments can remain unused without blocking the rest of the app; account balances and ROI reconcile.
+
+## Custom allocations and monthly spending — authorized 2026-11-17
+
+- Named allocation snapshots use stable bucket IDs, editable names and basis-point shares. Plans remain effective by month and retain revisions; removed buckets keep historical spending. Unallocated remains the explicit remainder. Savings/investment targets retain their account semantics, and forecasts use the same allocation rounding as the plan.
+- Income categories offer salary and other suggested/custom types using the existing entry category. Adding a salary opens pending monthly payments for that month but never automatically creates an expense.
+- Monthly schedules have a name, positive piastre amount, category, account, optional bucket, starting month, optional end date, and optional due day. No end date means the schedule continues indefinitely. A due day after an end date excludes that final month's task; without a due day the last month is included. Due days clamp to the last day of short months. The original new-schedule end-date requirement was removed at the user's request.
+- Explicit completion atomically creates one real expense and a unique schedule/month link; the following month stays pending. Payment corrections retain the link and must stay in its month. Undo removes the linked expense. Deleting a schedule keeps its cash entries. Changing the schedule's bucket or other defaults never rewrites completed entries. Plan & accounts exposes bucket assignments.
+- Schema v7 contains allocation snapshots, `recurringExpenses` and `recurringPayments`. Older versions migrate in memory without changing financial records; a v6 inclusive end month becomes its last calendar date. Backups validate schedule dates, unique monthly links, referenced cash entries and conflicts before writing. Current records win matching IDs; incompatible payment or plan merges fail atomically.
+- Verification: `bun run release` passes 79 tests / 2,320 assertions, clean Svelte/TypeScript checks and production artifact verification; 17 resources (~787 KiB) are precached. Browser checks covered custom allocations, salary/freelance, bucket assignment, completed/undone payments, end dates, backup merge, reload and mobile widths. A production preview reloaded and persisted a schedule under offline emulation with an uncached request blocked. Physical devices, deployed headers and hosted CI remain unverified.
+
+## Fixed allocation update — authorized 2026-11-17
+
+- Schema v8 preserves existing percentage plans and allows each allocation to use either basis points or a nonnegative fixed amount in piastres. Percentages apply to full monthly income; fixed targets are not reduced when income is low. The unallocated target is the remaining income, or zero with an explicit over-allocation warning. Forecasts use the same targets.
+- A compatibility change removes reliance on `Object.hasOwn`, and a plan-page error boundary keeps the rest of the app and backup accessible if rendering fails. The reported production-phone failure could not be reproduced with its device-local data; its root cause remains unconfirmed.
+- Tests were not run at the user's request. Svelte/TypeScript checks and the production build passed; physical-device acceptance remains pending.
+
+## Monthly remaining balances — authorized 2026-11-17
+
+- Schema v9 adds an optional current remaining balance to recurring schedules, stored as integer piastres. Earlier ledgers migrate without assuming a balance. Payment records created while tracking is enabled record how much was applied; payment edits, deletion and undo adjust the balance atomically. Balances may carry an overpayment internally, displayed as zero remaining and the excess overpaid.
+- Adding a balance does not retroactively apply earlier payments. Removing tracking clears payment balance links. Editing the schedule without changing its balance preserves concurrent payment updates. Reaching zero does not stop or delete a schedule.
+- Backup merges apply newly imported tracked payments once to an existing tracked balance; incompatible tracking rejects the merge before writing. The production build and Svelte/TypeScript checks pass; tests were not run at the user's request. Physical-device acceptance remains pending.
 
 ## Phase 5 — Neon database, authentication, cross-platform sync
 

@@ -3,6 +3,7 @@ import { expect, test } from 'bun:test';
 import { addPlan, defaultShares, emptyLedger, type Entry, type Ledger } from '../src/lib/finance';
 import { loadLedger, saveLedger, updateLedger } from '../src/lib/storage';
 import { recordInvestmentEvent } from '../src/lib/investments';
+import { recordRecurringPayment } from '../src/lib/recurring';
 
 test('IndexedDB persists complete ledgers, rejects bad imports without data loss, and supports replacement', async () => {
   expect(await loadLedger()).toEqual(emptyLedger());
@@ -46,7 +47,7 @@ test('reads legacy IndexedDB data without destructive writes and commits the cur
     req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error);
   });
   const migrated = await loadLedger();
-  expect(migrated.schemaVersion).toBe(4);
+  expect(migrated.schemaVersion).toBe(9);
   expect(migrated.entries).toEqual(legacy.entries);
   expect((await readRaw()).schemaVersion).toBe(1);
   const at = '2026-11-01T08:00:00.000Z';
@@ -56,7 +57,7 @@ test('reads legacy IndexedDB data without destructive writes and commits the cur
   }, '2026-11', defaultShares);
   await saveLedger(next);
   expect(await loadLedger()).toEqual(next);
-  expect((await readRaw()).schemaVersion).toBe(4);
+  expect((await readRaw()).schemaVersion).toBe(9);
   await expect(saveLedger({ ...next, transfers: [{ ...next.transfers[0], to: 'wallet' }] })).rejects.toThrow();
   expect(await loadLedger()).toEqual(next);
   await saveLedger(emptyLedger()); db.close();
@@ -79,5 +80,20 @@ test('persists v4 investment/cash relationships atomically and rejects dangling 
   expect(await loadLedger()).toEqual(ledger);
   await expect(updateLedger(current => ({ ...current, entries: [] }))).rejects.toThrow('cash link');
   expect(await loadLedger()).toEqual(ledger);
+  await saveLedger(emptyLedger());
+});
+
+test('concurrent monthly payment attempts create exactly one expense and failed writes retain it', async () => {
+  const at = new Date(2026, 10, 1, 12).toISOString();
+  await saveLedger({ ...emptyLedger(), recurringExpenses: [{ id: 'rent', name: 'Rent', amountMinor: 50000, category: 'Bills', account: 'wallet', bucket: 'life', startMonth: '2026-11', createdAt: at, updatedAt: at }] });
+  const details = { amountMinor: 50000, note: 'Rent', category: 'Bills', account: 'wallet' as const, bucket: 'life', localTime: '2026-11-10T12:00' };
+  const results = await Promise.allSettled([updateLedger(current => recordRecurringPayment(current, 'rent', '2026-11', details)), updateLedger(current => recordRecurringPayment(current, 'rent', '2026-11', details))]);
+  expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+  expect(results.filter(result => result.status === 'rejected')).toHaveLength(1);
+  const saved = await loadLedger();
+  expect(saved.entries).toHaveLength(1);
+  expect(saved.recurringPayments).toHaveLength(1);
+  await expect(updateLedger(current => ({ ...current, entries: [] }))).rejects.toThrow('Monthly payment link');
+  expect(await loadLedger()).toEqual(saved);
   await saveLedger(emptyLedger());
 });
