@@ -2,8 +2,8 @@
   import { fade } from 'svelte/transition';
   import Icon from './Icon.svelte';
   import {
-    accountBalances, accountIds, accountLabels, addAllocationPlan, allocationsForMonth, budgetForMonth,
-    bucketLabelForMonth, isMonth, localDateTime, monthKey, occurrenceTime, parseAmount, parsePercent, spendingBucketsForMonth,
+    accountBalances, accountIds, accountLabels, addAllocationPlan, allocatePlanIncome, allocationsForMonth, budgetForMonth,
+    bucketLabelForMonth, isMonth, localDateTime, monthKey, occurrenceTime, parseAmount, parseNonNegativeAmount, parsePercent, spendingBucketsForMonth, totals,
     type AccountId, type Entry, type Ledger, type OpeningBalance, type Transfer
   } from './finance';
   import { recurringForMonth, saveRecurringExpense } from './recurring';
@@ -31,9 +31,17 @@
   let message = $state('');
   let planOpen = $state(false);
   let effectiveMonth = $state('');
-  let allocationDraft = $state<{ id: string; name: string; percent: string }[]>([]);
+  let allocationDraft = $state<{ id: string; name: string; mode: 'percent' | 'amount'; percent: string; amount: string }[]>([]);
   let planError = $state('');
-  const remainder = $derived(100 - allocationDraft.reduce((sum, allocation) => sum + Number(allocation.percent), 0));
+  const previewIncome = $derived(isMonth(effectiveMonth) ? totals(ledger.entries.filter(entry => monthKey(entry.occurredAt) === effectiveMonth)).income : 0);
+  const draftSummary = $derived.by(() => {
+    try {
+      const allocations = draftAllocations();
+      const targets = allocatePlanIncome(previewIncome, allocations);
+      const allocated = allocations.reduce((sum, allocation) => sum + targets[allocation.id], 0);
+      return { unallocated: targets.unallocated, overallocated: Math.max(0, allocated - previewIncome) };
+    } catch { return null; }
+  });
   let form = $state<'transfer' | 'opening' | null>(null);
   let editingTransfer = $state<Transfer | null>(null);
   let openingId = $state<string | undefined>();
@@ -53,19 +61,22 @@
   ].sort((a, b) => b.at.localeCompare(a.at)));
   function modal(node: HTMLDialogElement) { node.showModal(); return { destroy: () => node.close() }; }
   function openPlan() {
-    allocationDraft = allocationsForMonth(ledger, month).map(allocation => ({ id: allocation.id, name: allocation.name, percent: String(allocation.share / 100) }));
+    allocationDraft = allocationsForMonth(ledger, month).map(allocation => ({ id: allocation.id, name: allocation.name, mode: allocation.amountMinor === undefined ? 'percent' : 'amount', percent: String(allocation.share / 100), amount: ((allocation.amountMinor ?? 0) / 100).toFixed(2) }));
     effectiveMonth = month; planError = ''; planOpen = true; message = '';
   }
   function addAllocation(account?: 'savings' | 'investment') {
-    allocationDraft = [...allocationDraft, { id: account ?? crypto.randomUUID(), name: account ? accountLabels[account] : '', percent: '0' }];
+    allocationDraft = [...allocationDraft, { id: account ?? crypto.randomUUID(), name: account ? accountLabels[account] : '', mode: 'percent', percent: '0', amount: '0.00' }];
+  }
+  function draftAllocations() {
+    return allocationDraft.map(allocation => ({ id: allocation.id, name: allocation.name, share: allocation.mode === 'percent' ? parsePercent(allocation.percent) : 0, ...(allocation.mode === 'amount' ? { amountMinor: parseNonNegativeAmount(allocation.amount) } : {}) }));
   }
   async function savePlan(event: SubmitEvent) {
     event.preventDefault(); planError = '';
     try {
-      const allocations = allocationDraft.map(allocation => ({ id: allocation.id, name: allocation.name, share: parsePercent(allocation.percent) }));
+      const allocations = draftAllocations();
       if (await commit(current => addAllocationPlan(current, effectiveMonth, allocations))) { planOpen = false; message = 'Plan version saved. No money was moved.'; }
       else planError = getError() || 'Could not save this plan. Try again.';
-    } catch (e) { planError = e instanceof Error ? e.message : 'Check your percentages.'; }
+    } catch (e) { planError = e instanceof Error ? e.message : 'Check your allocations.'; }
   }
   async function assignBucket(scheduleId: string, nextBucket: string, select: HTMLSelectElement) {
     const previous = ledger.recurringExpenses.find(schedule => schedule.id === scheduleId)?.bucket ?? '';
@@ -130,18 +141,18 @@
       {#each spendingBuckets as bucket (bucket.id)}
         {@const spent = budget.spent[bucket.id] ?? 0}
         {@const target = budget.targets[bucket.id] ?? 0}
-        <div class="allocation-row"><div><strong>{bucket.name}</strong><small>{bucket.share / 100}% of income · Monthly spending limit</small></div><div class="allocation-numbers"><strong>EGP {money(target)}</strong><small class:budget-warning={spent > target}>{money(spent)} spent · {spent > target ? `${money(spent - target)} over` : `${money(target - spent)} left`}</small></div></div>
+        <div class="allocation-row"><div><strong>{bucket.name}</strong><small>{bucket.id === 'unallocated' ? 'Remaining income' : bucket.amountMinor !== undefined ? 'Fixed amount' : `${bucket.share / 100}% of income`} · Monthly spending limit</small></div><div class="allocation-numbers"><strong>EGP {money(target)}</strong><small class:budget-warning={spent > target}>{money(spent)} spent · {spent > target ? `${money(spent - target)} over` : `${money(target - spent)} left`}</small></div></div>
       {/each}
       {#each removedBuckets as bucket (bucket)}
         <div class="allocation-row"><div><strong>{bucketLabelForMonth(ledger, bucket, month)}</strong><small>Removed allocation · Spending retained</small></div><div class="allocation-numbers"><strong>EGP {money(budget.spent[bucket])}</strong><small>spent</small></div></div>
       {/each}
       {#each budget.allocations.filter(allocation => allocation.id === 'savings' || allocation.id === 'investment') as allocation (allocation.id)}
         {@const key = allocation.id as 'savings' | 'investment'}
-        <div class="allocation-row"><div><strong>{allocation.name}</strong><small>{allocation.share / 100}% of income · {accountLabels[key]} net contribution target</small></div><div class="allocation-numbers"><strong>EGP {money(budget.targets[key])}</strong><small>{money(budget.netAdded[key])} net added · {budget.netAdded[key] >= budget.targets[key] ? 'Target met' : `${money(budget.targets[key] - budget.netAdded[key])} to go`}</small></div></div>
+        <div class="allocation-row"><div><strong>{allocation.name}</strong><small>{allocation.amountMinor !== undefined ? 'Fixed amount' : `${allocation.share / 100}% of income`} · {accountLabels[key]} net contribution target</small></div><div class="allocation-numbers"><strong>EGP {money(budget.targets[key])}</strong><small>{money(budget.netAdded[key])} net added · {budget.netAdded[key] >= budget.targets[key] ? 'Target met' : `${money(budget.targets[key] - budget.netAdded[key])} to go`}</small></div></div>
       {/each}
     </div>
-    <div class="finance-policy"><p>Budget limits start fresh each month. Account balances carry forward. Allocation amounts include every piastre; any rounding remainder is distributed consistently.</p><p>Savings and investment progress uses net transfers + direct income − direct spending; opening balances are excluded.</p>{#if budget.spent.unclassified > 0}<p class="budget-warning">EGP {money(budget.spent.unclassified)} of spending has no budget bucket. It is included in total spending, but needs your review before it can be compared with a limit.</p><button class="text-button" onclick={onreview}>Review spending in Activity <Icon name="chevron" size={15} /></button>{/if}</div>
-    {#if ledger.plans.length}<details class="plan-history"><summary>Plan history · {ledger.plans.length} versions</summary>{#each [...ledger.plans].sort((a, b) => b.effectiveMonth.localeCompare(a.effectiveMonth) || b.revision - a.revision) as plan (plan.id)}<p><strong>{plan.effectiveMonth} · revision {plan.revision}</strong><span>{plan.allocations.map(allocation => `${allocation.name} ${allocation.share / 100}%`).join(' / ') || 'No allocations'}</span><small>Saved {date(plan.createdAt)}</small></p>{/each}</details>{/if}
+    <div class="finance-policy"><p>Budget limits start fresh each month. Account balances carry forward. Percentages use this month's income; fixed amounts stay the same.</p>{#if budget.overallocated > 0}<p class="budget-warning">Allocated targets exceed this month's income by EGP {money(budget.overallocated)}.</p>{/if}<p>Savings and investment progress uses net transfers + direct income − direct spending; opening balances are excluded.</p>{#if budget.spent.unclassified > 0}<p class="budget-warning">EGP {money(budget.spent.unclassified)} of spending has no budget bucket. It is included in total spending, but needs your review before it can be compared with a limit.</p><button class="text-button" onclick={onreview}>Review spending in Activity <Icon name="chevron" size={15} /></button>{/if}</div>
+    {#if ledger.plans.length}<details class="plan-history"><summary>Plan history · {ledger.plans.length} versions</summary>{#each [...ledger.plans].sort((a, b) => b.effectiveMonth.localeCompare(a.effectiveMonth) || b.revision - a.revision) as plan (plan.id)}<p><strong>{plan.effectiveMonth} · revision {plan.revision}</strong><span>{plan.allocations.map(allocation => `${allocation.name} ${allocation.amountMinor === undefined ? `${allocation.share / 100}%` : `EGP ${money(allocation.amountMinor)}`}`).join(' / ') || 'No allocations'}</span><small>Saved {date(plan.createdAt)}</small></p>{/each}</details>{/if}
   </section>
 
   <section class="panel">
@@ -166,7 +177,8 @@
           {#each allocationDraft as allocation (allocation.id)}
             <div class="allocation-editor-row">
               <label class="form-label">{allocation.id === 'savings' ? 'Savings target' : allocation.id === 'investment' ? 'Investment target' : 'Spending bucket'}<input aria-label={`Name for ${allocation.name || 'new allocation'}`} bind:value={allocation.name} maxlength="60" required /></label>
-              <label class="form-label">Percent<input aria-label={`Percentage for ${allocation.name || 'new allocation'}`} inputmode="decimal" bind:value={allocation.percent} required /></label>
+              <label class="form-label">Type<select aria-label={`Allocation type for ${allocation.name || 'new allocation'}`} bind:value={allocation.mode}><option value="percent">Percent</option><option value="amount">Fixed EGP</option></select></label>
+              {#if allocation.mode === 'percent'}<label class="form-label">Percent<input aria-label={`Percentage for ${allocation.name || 'new allocation'}`} inputmode="decimal" bind:value={allocation.percent} required /></label>{:else}<label class="form-label">Amount (EGP)<input aria-label={`Amount for ${allocation.name || 'new allocation'}`} inputmode="decimal" bind:value={allocation.amount} maxlength="13" required /></label>{/if}
               <button type="button" class="icon-button delete-button" title="Remove allocation" aria-label={`Remove ${allocation.name || 'new allocation'}`} onclick={() => allocationDraft = allocationDraft.filter(item => item.id !== allocation.id)}><Icon name="trash" size={17} /></button>
             </div>
           {/each}
@@ -176,7 +188,7 @@
           {#if !allocationDraft.some(allocation => allocation.id === 'savings')}<button type="button" class="text-button" onclick={() => addAllocation('savings')}>Add savings target</button>{/if}
           {#if !allocationDraft.some(allocation => allocation.id === 'investment')}<button type="button" class="text-button" onclick={() => addAllocation('investment')}>Add investment target</button>{/if}
         </div>
-        <p class="finance-notice" class:budget-warning={!Number.isFinite(remainder) || remainder < 0}>{Number.isFinite(remainder) ? remainder.toFixed(2) : '—'}% unallocated</p>
+        {#if draftSummary}<p class="finance-notice" class:budget-warning={draftSummary.overallocated > 0}>{#if draftSummary.overallocated > 0}EGP {money(draftSummary.overallocated)} overallocated{:else}EGP {money(draftSummary.unallocated)} unallocated{/if} · {effectiveMonth}</p>{/if}
         {#if planError}<p class="form-error" role="alert">{planError}</p>{/if}<button class="primary-button full-width" type="submit">{busy ? 'Saving…' : 'Save plan version'}<Icon name="check" size={17} /></button>
       </fieldset></form>
     </div>
