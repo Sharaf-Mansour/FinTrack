@@ -31,7 +31,7 @@ describe('portable JSON backups', () => {
     expect(validateLedger({ ...emptyLedger(), extra: 'ignore' })).toEqual(emptyLedger());
   });
   test('rejects malformed files, incompatible schemas, and duplicate identities', () => {
-    for (const raw of [null, [], {}, { ...emptyLedger(), schemaVersion: 8 }, { ...emptyLedger(), currency: 'USD' }, { ...emptyLedger(), entries: [entry(), entry()] }]) expect(() => validateLedger(raw)).toThrow();
+    for (const raw of [null, [], {}, { ...emptyLedger(), schemaVersion: 10 }, { ...emptyLedger(), currency: 'USD' }, { ...emptyLedger(), entries: [entry(), entry()] }]) expect(() => validateLedger(raw)).toThrow();
   });
   test('rejects invalid dates, amounts, kinds, and unbounded notes', () => {
     for (const bad of [{ amountMinor: 0 }, { amountMinor: 1.5 }, { amountMinor: -20 }, { occurredAt: 'not a date' }, { occurredAt: '2026-02-30T10:00:00.000Z' }, { createdAt: 'today' }, { note: ' ' }, { note: 'a'.repeat(301) }, { category: '' }, { kind: 'transfer' }]) expect(() => validateLedger({ ...emptyLedger(), entries: [entry(bad as Partial<Entry>)] })).toThrow();
