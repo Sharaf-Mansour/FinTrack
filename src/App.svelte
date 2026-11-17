@@ -10,7 +10,7 @@
   import InvestmentsPanel from './lib/InvestmentsPanel.svelte';
   import RecurringPanel from './lib/RecurringPanel.svelte';
   import { accountIds, accountLabels, bucketLabelForMonth, defaultCategories, emptyLedger, isMonth, localDateTime, mergeLedgers, monthKey, occurrenceTime, parseAmount, spendingBucketsForMonth, totals, validateLedger, type AccountId, type BudgetBucket, type Entry, type EntryKind, type Ledger } from './lib/finance';
-  import { recurringForMonth } from './lib/recurring';
+  import { recurringForMonth, undoRecurringPayment, updateRecurringPaymentEntry } from './lib/recurring';
   import { loadLedger, updateLedger } from './lib/storage';
 
   type InstallEvent = Event & { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> };
@@ -94,7 +94,7 @@
       const entry: Entry = { id: editing?.id ?? crypto.randomUUID(), kind, amountMinor, note: note.trim(), category: (kind === 'income' ? incomeCategory : category).trim(), occurredAt: occurrenceTime(occurredAt, editing?.occurredAt), createdAt: editing?.createdAt ?? now, updatedAt: now, account: entryAccount, ...(kind === 'expense' && entryBucket ? { bucket: entryBucket } : {}) };
       const saved = await mutate(current => {
         if (editing && !current.entries.some(e => e.id === entry.id)) throw new Error('This entry was deleted in another tab. Close this form and try again.');
-        return { ...current, entries: [...current.entries.filter(e => e.id !== entry.id), entry] };
+        return updateRecurringPaymentEntry(current, entry);
       });
       if (saved) {
         showForm = false; month = monthKey(entry.occurredAt);
@@ -108,7 +108,10 @@
   async function removeEntry() {
     if (!deleteTarget) return;
     const id = deleteTarget.id;
-    if (await mutate(current => ({ ...current, entries: current.entries.filter(e => e.id !== id), recurringPayments: current.recurringPayments.filter(payment => payment.entryId !== id) }))) { deleteTarget = null; notify('Entry deleted.'); }
+    if (await mutate(current => {
+      const payment = current.recurringPayments.find(item => item.entryId === id);
+      return payment ? undoRecurringPayment(current, payment.id) : { ...current, entries: current.entries.filter(e => e.id !== id) };
+    })) { deleteTarget = null; notify('Entry deleted.'); }
   }
   async function exportData() {
     try {
@@ -197,7 +200,7 @@
       {:else if page === 'monthly'}
         {#if loaded}<RecurringPanel {ledger} {month} {busy} disabled={storageError} commit={mutate} getError={() => error} onedit={(entry) => startEntry(entry.kind, entry)} />{:else}<p class="finance-notice">{storageError ? 'Storage needs attention.' : 'Opening your ledger…'}</p>{/if}
       {:else if page === 'finance'}
-        {#if loaded}<FinancePanel {ledger} {month} {busy} disabled={storageError} commit={mutate} getError={() => error} onedit={(entry) => startEntry(entry.kind, entry)} onreview={() => { page = 'activity'; filter = 'expense'; search = ''; unclassifiedOnly = true; }} onmonthly={() => page = 'monthly'} />{:else}<div class="panel empty-state"><h2>{storageError ? 'Storage needs attention' : 'Opening your ledger…'}</h2></div>{/if}
+        {#if loaded}<svelte:boundary><FinancePanel {ledger} {month} {busy} disabled={storageError} commit={mutate} getError={() => error} onedit={(entry) => startEntry(entry.kind, entry)} onreview={() => { page = 'activity'; filter = 'expense'; search = ''; unclassifiedOnly = true; }} onmonthly={() => page = 'monthly'} />{#snippet failed(failure, reset)}<div class="panel empty-state" role="alert"><h2>Plan & accounts couldn't load</h2><p>Your records have not been changed. {failure instanceof Error ? failure.message : 'An unexpected display error occurred.'}</p><div class="dialog-actions"><button class="secondary-button" onclick={reset}>Try again</button><button class="text-button" onclick={() => page = 'backup'}>Backup & data</button></div></div>{/snippet}</svelte:boundary>{:else}<div class="panel empty-state"><h2>{storageError ? 'Storage needs attention' : 'Opening your ledger…'}</h2></div>{/if}
       {:else}
         {#if page === 'overview'}
           <section class="overview-grid" in:fly={{ y: 12, duration: 220 }}>
