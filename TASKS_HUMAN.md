@@ -23,6 +23,12 @@ Only tasks delegated to the human appear here. These are acceptance checks and f
 
 - [ ] Using disposable records, add a monthly installment with an end date and due day, link it to a custom allocation, record salary and complete one payment. Check that the expense and bucket totals agree, the next month is pending, and no task appears after the end date.
 - [ ] Add a new schedule after the previous one ends. Check editing/undoing a payment and deleting a schedule, then export and restore a current backup on a separate test origin. Verify the same workflows on your phone and installed PWA.
+- [ ] Create a schedule without an end date and confirm it continues in later months; add and remove an end date on an existing schedule.
+- [ ] Enter an optional remaining amount, record and correct a payment, then undo it; check the balance and a backup restore on the phone.
+
+## Allocation update acceptance
+
+- [ ] After deploying the update, keep a backup and check Plan & accounts on the affected phone. Confirm mixed percentage/fixed EGP allocations and their over-allocation warning. If it still fails, capture the displayed error and phone/browser version; device-local data is not available to the agent.
 
 ## Dark-theme acceptance
 
