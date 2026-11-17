@@ -47,7 +47,7 @@ test('reads legacy IndexedDB data without destructive writes and commits the cur
     req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error);
   });
   const migrated = await loadLedger();
-  expect(migrated.schemaVersion).toBe(7);
+  expect(migrated.schemaVersion).toBe(9);
   expect(migrated.entries).toEqual(legacy.entries);
   expect((await readRaw()).schemaVersion).toBe(1);
   const at = '2026-11-01T08:00:00.000Z';
@@ -57,7 +57,7 @@ test('reads legacy IndexedDB data without destructive writes and commits the cur
   }, '2026-11', defaultShares);
   await saveLedger(next);
   expect(await loadLedger()).toEqual(next);
-  expect((await readRaw()).schemaVersion).toBe(7);
+  expect((await readRaw()).schemaVersion).toBe(9);
   await expect(saveLedger({ ...next, transfers: [{ ...next.transfers[0], to: 'wallet' }] })).rejects.toThrow();
   expect(await loadLedger()).toEqual(next);
   await saveLedger(emptyLedger()); db.close();
