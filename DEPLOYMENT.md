@@ -21,13 +21,13 @@ bun run release
 bun run preview
 ```
 
-`bun run release` runs 63 tests, type/Svelte checks, static compilation and `scripts/verify-release.ts`. The artifact check verifies the dark standalone manifest, installation icons, every CSS/JS bundle in the offline cache, no remote/inline HTML scripts, no exact package manifest pins, Bun configuration and service-worker cache headers. It checks artifacts/configuration; it does not replace real browser or deployed HTTP verification.
+`bun run release` runs 79 tests, type/Svelte checks, static compilation and `scripts/verify-release.ts`. The artifact check verifies the dark standalone manifest, installation icons, every CSS/JS bundle in the offline cache, no remote/inline HTML scripts, no exact package manifest pins, Bun configuration and service-worker cache headers. It checks artifacts/configuration; it does not replace real device or deployed HTTP verification.
 
 ## Data migration to the hosted app
 
-Before switching from localhost or another domain, export JSON using **Backup & data**. Open the production domain and import that file. Different origins—including localhost, Vercel preview deployments and your final domain—have separate IndexedDB databases and service-worker caches. Changing the domain does not automatically move financial records. Close older app tabs and apply the update prompt before editing schema-v4 data.
+Before switching from localhost or another domain, export JSON using **Backup & data**. Open the production domain and import that file. Different origins—including localhost, Vercel preview deployments and your final domain—have separate IndexedDB databases and service-worker caches. Changing the domain does not automatically move financial records. Close older app tabs and apply the update prompt before editing schema-v7 data.
 
-V4 backups include entries, plans, transfers, opening funds, expected income, wishlist, investments and investment events. V1/v2/v3 backups migrate without inventing records. A replacement restores exactly the fields the older version supports and clears newer collections; export current data first. Merges keep current matching IDs, but inconsistent investment-to-cash links reject the complete import rather than silently changing ROI or balances.
+V7 backups include entries, named allocation plans, transfers, opening funds, expected income, wishlist, investments, investment events, recurring schedules and monthly payment links. V1–v6 backups migrate without inventing records. A replacement restores exactly the fields the older version supports and clears newer collections; export current data first. Merges keep current matching IDs, but conflicting plan revisions, duplicate monthly payments or inconsistent cash links reject the complete import rather than silently changing balances.
 
 ## Caching and security settings
 
@@ -53,8 +53,8 @@ Commit the updated lockfile after checks. Avoid `bun update --latest`: it overri
 
 ## Release acceptance and current limits
 
-Automated results: 63 tests / 2,241 assertions pass; Svelte/TypeScript checks and production artifact verification pass; `bun audit` reports no vulnerabilities in 445 checked packages. `bun install --frozen-lockfile` succeeds. The generated worker precaches 17 resources (~753 KiB).
+Automated results on 2026-11-17: 79 tests / 2,320 assertions pass; Svelte/TypeScript checks and production artifact verification pass. The generated worker precaches 17 resources (~787 KiB). The earlier dependency audit and frozen install passed; neither was rerun for the allocation/monthly-spending update.
 
-No Vercel deployment was created in this task. GitHub CI was written but has not run on a hosted Linux runner. The earlier browser-origin approval restriction was not bypassed, so interactive browser layout, chart controls, actual deployed headers/CSP, installation and airplane-mode launch remain unverified. They are explicitly tracked in `TASKS_HUMAN.md`.
+No Vercel deployment was created in this task. GitHub CI was written but has not run on a hosted Linux runner. Browser approval was granted for the current checks: allocation/income/monthly-payment workflows and mobile widths were exercised, and the production preview reloaded and persisted a schedule under offline emulation. Chart controls, actual deployed headers/CSP, physical installation and airplane-mode launch remain unverified. They are tracked in `TASKS_HUMAN.md`.
 
 After deploying, verify the investment examples (20→0 = -20/-100%; 20 plus 20 extra loss = -40/-200%; 20→20 = break-even; 20→40 = +20/+100%), backup restoration, two-tab edits, mobile controls, offline navigation/charts, and update prompts on the final HTTPS origin. The human checklist contains those acceptance tasks.
