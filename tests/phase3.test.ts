@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { accountBalances, addPlan, defaultShares, emptyLedger, mergeLedgers, parseNonNegativeAmount, validateLedger, type Entry, type ExpectedIncome, type Ledger, type Wish } from '../src/lib/finance';
+import { accountBalances, addAllocationPlan, addPlan, defaultShares, emptyLedger, mergeLedgers, parseNonNegativeAmount, validateLedger, type Entry, type ExpectedIncome, type Ledger, type Wish } from '../src/lib/finance';
 import { forecastSavings, monthEnd, monthlyTrends, orderedWishlist, recentAssumptions, shiftMonth, spendingDetails } from '../src/lib/insights';
 
 const time = (month: string, day = 1) => { const [year, m] = month.split('-').map(Number); return new Date(year, m - 1, day, 12).toISOString(); };
@@ -15,7 +15,7 @@ describe('v3 records and migrations', () => {
   test('v2 upgrades without changing existing records or inventing forecasts', () => {
     const { expectedIncomes, wishlist, ...v2 } = { ...savings(5000), entries: [entry('legacy', '2026-10', 10000)] };
     const migrated = validateLedger({ ...v2, schemaVersion: 2 });
-    expect(migrated).toEqual({ ...v2, schemaVersion: 4, expectedIncomes: [], wishlist: [] });
+    expect(migrated).toEqual({ ...v2, schemaVersion: 7, expectedIncomes: [], wishlist: [] });
   });
   test('expected income and wishlist roundtrip with no effect on real balances', () => {
     const ledger = { ...savings(10000), expectedIncomes: [expected('2026-12', 500000)], wishlist: [wish('GPU', 60000, 1, { targetMonth: '2027-02' })] };
@@ -77,6 +77,13 @@ describe('local trend aggregation', () => {
 });
 
 describe('savings-only forecast', () => {
+  test('uses the same custom allocation rounding as the monthly plan', () => {
+    const ledger = addAllocationPlan({ ...emptyLedger(), expectedIncomes: [expected('2026-11', 1)] }, '2026-11', [
+      { id: 'bills', name: 'Bills', share: 5000 },
+      { id: 'savings', name: 'Savings', share: 5000 }
+    ]);
+    expect(run(ledger).points[0].projectedContributionMinor).toBe(0);
+  });
   test('actual income replaces expected for a month, never adding both', () => {
     const ledger = { ...emptyLedger(), entries: [entry('actual', '2026-11', 100000)], expectedIncomes: [expected('2026-11', 999000)] };
     const result = run(ledger);
