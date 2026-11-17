@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { accountBalances, addPlan, budgetForMonth, defaultShares, emptyLedger, mergeLedgers, totals, validateLedger, type Entry, type RecurringExpense, type RecurringPayment } from '../src/lib/finance';
-import { deleteRecurringExpense, dueDateForMonth, recordRecurringPayment, recurringForMonth, saveRecurringExpense, undoRecurringPayment } from '../src/lib/recurring';
+import { deleteRecurringExpense, dueDateForMonth, recordRecurringPayment, recurringForMonth, saveRecurringExpense, undoRecurringPayment, updateRecurringPaymentEntry } from '../src/lib/recurring';
 
 const at = new Date(2026, 10, 10, 12).toISOString();
 const schedule: RecurringExpense = { id: 'rent', name: 'Rent', amountMinor: 125000, category: 'Bills', account: 'wallet', bucket: 'life', startMonth: '2026-11', endDate: '2027-12-31', dueDay: 15, createdAt: at, updatedAt: at };
@@ -67,10 +67,41 @@ describe('monthly installment lifecycle', () => {
     expect(recurringForMonth({ ...ledger, recurringExpenses: [{ ...first, dueDay: undefined }] }, '2027-02')).toHaveLength(1);
     expect(() => recordRecurringPayment(ledger, first.id, '2027-02', { amountMinor: 100, note: 'Rent', category: 'Bills', account: 'wallet', localTime: '2027-02-10T12:00' })).toThrow('not scheduled');
   });
-  test('requires an end date for newly created schedules', () => {
+  test('supports creating and editing open-ended schedules', () => {
     const draft = { ...schedule }; delete draft.endDate;
-    expect(() => saveRecurringExpense(emptyLedger(), draft)).toThrow('end date');
-    expect(saveRecurringExpense(emptyLedger(), schedule).recurringExpenses[0].endDate).toBe('2027-12-31');
+    const ongoing = saveRecurringExpense(emptyLedger(), draft);
+    expect(ongoing.recurringExpenses[0].endDate).toBeUndefined();
+    expect(recurringForMonth(ongoing, '2099-12')).toHaveLength(1);
+    const ended = saveRecurringExpense(ongoing, schedule, ongoing.recurringExpenses[0].id);
+    expect(ended.recurringExpenses[0].endDate).toBe('2027-12-31');
+    expect(saveRecurringExpense(ended, draft, ended.recurringExpenses[0].id).recurringExpenses[0].endDate).toBeUndefined();
+  });
+  test('tracks payment corrections, overpayments and undo against the remaining balance', () => {
+    const ledger = { ...emptyLedger(), recurringExpenses: [{ ...schedule, remainingMinor: 300000 }] };
+    const paid = recordRecurringPayment(ledger, schedule.id, '2026-11', { amountMinor: 125000, note: 'Rent', category: 'Bills', account: 'wallet', localTime: '2026-11-10T12:00' });
+    expect(paid.recurringExpenses[0].remainingMinor).toBe(175000);
+    const corrected = updateRecurringPaymentEntry(paid, { ...paid.entries[0], amountMinor: 350000 });
+    expect(corrected.recurringExpenses[0].remainingMinor).toBe(-50000);
+    expect(corrected.recurringPayments[0].remainingAppliedMinor).toBe(350000);
+    expect(undoRecurringPayment(corrected, corrected.recurringPayments[0].id).recurringExpenses[0].remainingMinor).toBe(300000);
+  });
+  test('does not apply older payments when balance tracking starts or is removed', () => {
+    const ledger = { ...emptyLedger(), entries: [expense], recurringExpenses: [schedule], recurringPayments: [payment] };
+    const tracked = saveRecurringExpense(ledger, { ...schedule, remainingMinor: 200000 }, schedule.id);
+    expect(undoRecurringPayment(tracked, payment.id).recurringExpenses[0].remainingMinor).toBe(200000);
+    const paid = recordRecurringPayment(tracked, schedule.id, '2026-12', { amountMinor: 50000, note: 'Rent', category: 'Bills', account: 'wallet', localTime: '2026-12-10T12:00' });
+    const untracked = saveRecurringExpense(paid, schedule, schedule.id);
+    expect(untracked.recurringPayments.find(item => item.month === '2026-12')?.remainingAppliedMinor).toBeUndefined();
+    expect(untracked.recurringExpenses[0].remainingMinor).toBeUndefined();
+  });
+  test('merges new tracked payments once and rejects incompatible balance tracking', () => {
+    const current = { ...emptyLedger(), recurringExpenses: [{ ...schedule, remainingMinor: 300000 }] };
+    const paid = recordRecurringPayment(current, schedule.id, '2026-11', { amountMinor: 125000, note: 'Rent', category: 'Bills', account: 'wallet', localTime: '2026-11-10T12:00' });
+    const merged = mergeLedgers(current, paid);
+    expect(merged.recurringExpenses[0].remainingMinor).toBe(175000);
+    expect(mergeLedgers(merged, paid)).toEqual(merged);
+    expect(() => mergeLedgers({ ...current, recurringExpenses: [schedule] }, paid)).toThrow('remaining balance');
+    expect(() => validateLedger({ ...paid, recurringPayments: [{ ...paid.recurringPayments[0], remainingAppliedMinor: 1 }] })).toThrow('balance link');
   });
   test('records an expense exactly once and leaves the next month pending', () => {
     const ledger = { ...emptyLedger(), recurringExpenses: [schedule] };
