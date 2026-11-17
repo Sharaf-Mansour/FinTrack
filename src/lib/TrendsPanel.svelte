@@ -1,0 +1,55 @@
+<script lang="ts">
+  import type { EChartsCoreOption } from 'echarts/core';
+  import { localDateTime, monthKey, totals, type Entry, type Ledger } from './finance';
+  import { monthlyTrends, spendingDetails } from './insights';
+  import Chart from './Chart.svelte';
+  import Icon from './Icon.svelte';
+  let { ledger, month, onedit }: { ledger: Ledger; month: string; onedit: (entry: Entry) => void } = $props();
+  let months = $state(6);
+  let category = $state('');
+  let day = $state('');
+  let query = $state('');
+  let limit = $state(30);
+  $effect(() => { month; category = ''; day = ''; query = ''; limit = 30; });
+  const money = (minor: number) => new Intl.NumberFormat('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(minor / 100);
+  const details = $derived(spendingDetails(ledger, month));
+  const trends = $derived(monthlyTrends(ledger, month, months));
+  const selected = $derived(details.entries.filter(e => (!category || e.category === category) && (!day || localDateTime(new Date(e.occurredAt)).slice(0, 10) === day) && e.note.toLowerCase().includes(query.toLowerCase())));
+  const summary = $derived(totals(ledger.entries.filter(e => monthKey(e.occurredAt) === month)));
+  const busiestDay = $derived([...details.daily].sort((a, b) => b.amountMinor - a.amountMinor)[0]);
+  const topCategory = $derived(details.categories[0]);
+  const previousMonth = $derived(trends.at(-2));
+  const spendDifference = $derived(previousMonth?.hasActivity ? summary.expenses - previousMonth.expenses : null);
+  const base = {
+    backgroundColor: 'transparent', textStyle: { fontFamily: 'Arial, Helvetica, sans-serif', color: '#bdb6b1' },
+    color: ['#d9b777', '#bc3448', '#bdb6b1'],
+    tooltip: { trigger: 'axis', renderMode: 'richText', backgroundColor: '#191a1e', borderColor: '#343237', textStyle: { color: '#e9e4dd' }, confine: true },
+    grid: { left: 14, right: 18, top: 35, bottom: 18, containLabel: true },
+    legend: { textStyle: { color: '#bdb6b1', fontSize: 10 }, itemWidth: 14, top: 0 },
+  };
+  const axis = { axisLabel: { color: '#bdb6b1', fontSize: 10, hideOverlap: true }, axisLine: { lineStyle: { color: '#343237' } }, splitLine: { lineStyle: { color: '#26262b' } } };
+  const dailyOption = $derived<EChartsCoreOption>({ ...base, xAxis: { ...axis, type: 'category', data: details.daily.map(d => d.day.slice(-2)) }, yAxis: { ...axis, type: 'value', name: 'EGP' }, series: [{ name: 'Spending', type: 'bar', data: details.daily.map(d => d.amountMinor / 100), itemStyle: { borderRadius: [3, 3, 0, 0] }, barMaxWidth: 20 }] });
+  const categoryOption = $derived<EChartsCoreOption>({ ...base, grid: { ...base.grid, left: 14, top: 10 }, xAxis: { ...axis, type: 'value', name: 'EGP' }, yAxis: { ...axis, type: 'category', inverse: true, data: details.categories.slice(0, 10).map(c => c.category), axisLabel: { ...axis.axisLabel, width: 100, overflow: 'truncate' } }, series: [{ name: 'Spending', type: 'bar', data: details.categories.slice(0, 10).map(c => c.amountMinor / 100), barMaxWidth: 18 }] });
+  const incomeOption = $derived<EChartsCoreOption>({ ...base, xAxis: { ...axis, type: 'category', data: trends.map(t => t.month) }, yAxis: { ...axis, type: 'value', name: 'EGP' }, series: [{ name: 'Actual income', type: 'bar', data: trends.map(t => t.hasIncome ? t.income / 100 : null), barMaxWidth: 28 }, { name: 'Expected income (not actual)', type: 'bar', data: trends.map(t => t.expectedIncome === null ? null : t.expectedIncome / 100), itemStyle: { color: '#bdb6b1', opacity: 0.6 }, barMaxWidth: 28 }, { name: 'Spending', type: 'line', data: trends.map(t => t.hasActivity ? t.expenses / 100 : null), lineStyle: { color: '#bc3448' }, itemStyle: { color: '#bc3448' } }] });
+  const accountOption = $derived<EChartsCoreOption>({ ...base, xAxis: { ...axis, type: 'category', data: trends.map(t => t.month) }, yAxis: { ...axis, type: 'value', name: 'EGP', scale: true }, series: [{ name: 'Savings', type: 'line', data: trends.map(t => t.savings / 100), showSymbol: true }, { name: 'Investment cash', type: 'line', data: trends.map(t => t.investment / 100), lineStyle: { color: '#bdb6b1' }, itemStyle: { color: '#bdb6b1' } }] });
+</script>
+
+<div class="trends-space">
+  <div class="insight-cards">
+    <article class="panel insight-card"><span class="eyebrow">RECORDED SPENDING</span><h2>EGP {money(summary.expenses)}</h2><p>{spendDifference === null ? 'No recorded prior-month comparison.' : `${spendDifference > 0 ? '+' : ''}${money(spendDifference)} EGP versus the previous month.`}</p></article>
+    <article class="panel insight-card"><span class="eyebrow">TOP CATEGORY</span><h2>{topCategory?.category ?? 'No spending yet'}</h2><p>{topCategory ? `EGP ${money(topCategory.amountMinor)} · ${Math.round(topCategory.amountMinor / summary.expenses * 100)}% of spending.` : 'Your own categories appear here as you record spending.'}</p></article>
+    <article class="panel insight-card"><span class="eyebrow">HIGHEST-SPEND DAY</span><h2>{busiestDay?.amountMinor ? busiestDay.day : 'Nothing recorded'}</h2><p>{busiestDay?.amountMinor ? `EGP ${money(busiestDay.amountMinor)} across ${busiestDay.count} entries.` : 'No invented history. Add entries to build your picture.'}</p></article>
+  </div>
+  <div class="chart-grid">
+    <section class="panel chart-panel"><div class="section-heading"><div><h2>Daily spending</h2><p>{month} · Click a bar to inspect that day.</p></div></div>{#if details.entries.length}<Chart option={dailyOption} title={`Daily recorded spending in EGP for ${month}`} onselect={(name) => { day = `${month}-${name}`; limit = 30; }} />{:else}<p class="chart-empty">No spending recorded for this month.</p>{/if}<details class="data-details"><summary>Daily figures</summary><!-- svelte-ignore a11y_no_noninteractive_tabindex (Scrollable data tables need keyboard focus.) -->
+<div class="table-scroll" role="region" aria-label="Daily spending table" tabindex="0"><table><thead><tr><th scope="col">Date</th><th scope="col">Entries</th><th scope="col">Spent (EGP)</th></tr></thead><tbody>{#each details.daily as row}<tr><td><button class="text-button" onclick={() => { day = row.day; limit = 30; }}>{row.day}</button></td><td>{row.count}</td><td>{money(row.amountMinor)}</td></tr>{/each}</tbody></table></div></details></section>
+    <section class="panel chart-panel"><div class="section-heading"><div><h2>Where it went</h2><p>Top 10 categories · Full totals in the table.</p></div></div>{#if details.categories.length}<Chart option={categoryOption} title={`Spending by category in EGP for ${month}`} onselect={(name) => { category = name; limit = 30; }} />{:else}<p class="chart-empty">Your categories will appear here.</p>{/if}<details class="data-details"><summary>All category figures</summary><!-- svelte-ignore a11y_no_noninteractive_tabindex (Scrollable data tables need keyboard focus.) -->
+<div class="table-scroll" role="region" aria-label="Category spending table" tabindex="0"><table><thead><tr><th scope="col">Category</th><th scope="col">Entries</th><th scope="col">Spent (EGP)</th></tr></thead><tbody>{#each details.categories as row}<tr><td><button class="text-button" onclick={() => { category = row.category; limit = 30; }}>{row.category}</button></td><td>{row.count}</td><td>{money(row.amountMinor)}</td></tr>{/each}</tbody></table></div></details></section>
+  </div>
+  <label class="history-range">History window<select bind:value={months}><option value={3}>3 months</option><option value={6}>6 months</option><option value={12}>12 months</option><option value={24}>24 months</option></select><span>Ending {month}. Missing income stays missing, rather than becoming a zero-income claim.</span></label>
+  <section class="panel chart-panel"><div class="section-heading"><div><h2>Month by month</h2><p>Actual income, expected income and recorded spending. Expected income never adds to actual income.</p></div></div><Chart option={incomeOption} title="Monthly actual and expected income with spending in EGP" /><details class="data-details"><summary>Monthly figures</summary><!-- svelte-ignore a11y_no_noninteractive_tabindex (Scrollable data tables need keyboard focus.) -->
+<div class="table-scroll" role="region" aria-label="Monthly income table" tabindex="0"><table><thead><tr><th scope="col">Month</th><th scope="col">Actual income</th><th scope="col">Expected only</th><th scope="col">Spending</th></tr></thead><tbody>{#each trends as row}<tr><td>{row.month}</td><td>{row.hasIncome ? money(row.income) : 'Not recorded'}</td><td>{row.expectedIncome === null ? '—' : money(row.expectedIncome)}</td><td>{row.hasActivity ? money(row.expenses) : 'Not recorded'}</td></tr>{/each}</tbody></table></div></details></section>
+  <section class="panel chart-panel"><div class="section-heading"><div><h2>Savings & investment cash</h2><p>Cumulative balances at month end. Transfers and starting funds included. Investment cash is not market value or ROI.</p></div></div><Chart option={accountOption} title="Month-end savings and investment account cash balances in EGP" /><details class="data-details"><summary>Account balance figures</summary><!-- svelte-ignore a11y_no_noninteractive_tabindex (Scrollable data tables need keyboard focus.) -->
+<div class="table-scroll" role="region" aria-label="Account history table" tabindex="0"><table><thead><tr><th scope="col">Month</th><th scope="col">Savings (EGP)</th><th scope="col">Investment cash (EGP)</th></tr></thead><tbody>{#each trends as row}<tr><td>{row.month}</td><td>{money(row.savings)}</td><td>{money(row.investment)}</td></tr>{/each}</tbody></table></div></details></section>
+  <section class="panel"><div class="section-heading"><div><h2>What did I spend on?</h2><p>Use category, date and description to inspect your records.</p></div></div><div class="drilldown-controls"><label>Category<select bind:value={category}><option value="">All categories</option>{#each details.categories as item}<option value={item.category}>{item.category}</option>{/each}</select></label><label>Day<input type="date" bind:value={day} /></label><label>Description<input type="search" bind:value={query} placeholder="Search notes…" /></label><button class="text-button" onclick={() => { category = ''; day = ''; query = ''; limit = 30; }}>Clear filters</button></div><p class="filter-total">{selected.length} entries · EGP {money(selected.reduce((sum, e) => sum + e.amountMinor, 0))}</p>{#if !selected.length}<div class="empty-state"><p>No spending matches these filters.</p></div>{:else}<div class="entry-list">{#each selected.slice(0, limit) as entry (entry.id)}<article class="entry-row"><div class="entry-description"><h3>{entry.note}</h3><p>{entry.category} · {new Date(entry.occurredAt).toLocaleString('en-GB')}</p></div><span class="entry-amount">{money(entry.amountMinor)}<small>EGP</small></span><button class="icon-button" aria-label={`Edit ${entry.note}`} onclick={() => onedit(entry)}><Icon name="edit" size={16} /></button></article>{/each}</div>{#if selected.length > limit}<button class="more-entries" onclick={() => limit += 30}>Show more entries</button>{/if}{/if}</section>
+</div>
