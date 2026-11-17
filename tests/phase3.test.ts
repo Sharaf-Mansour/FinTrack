@@ -15,7 +15,7 @@ describe('v3 records and migrations', () => {
   test('v2 upgrades without changing existing records or inventing forecasts', () => {
     const { expectedIncomes, wishlist, ...v2 } = { ...savings(5000), entries: [entry('legacy', '2026-10', 10000)] };
     const migrated = validateLedger({ ...v2, schemaVersion: 2 });
-    expect(migrated).toEqual({ ...v2, schemaVersion: 7, expectedIncomes: [], wishlist: [] });
+    expect(migrated).toEqual({ ...v2, schemaVersion: 9, expectedIncomes: [], wishlist: [] });
   });
   test('expected income and wishlist roundtrip with no effect on real balances', () => {
     const ledger = { ...savings(10000), expectedIncomes: [expected('2026-12', 500000)], wishlist: [wish('GPU', 60000, 1, { targetMonth: '2027-02' })] };
