@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 .allocation-editor-list { display: grid; gap: 12px; }
-.allocation-editor-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(76px, 110px) 36px; gap: 10px; align-items: end; }
+.allocation-editor-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(100px, 120px) minmax(90px, 110px) 36px; gap: 10px; align-items: end; }
 .allocation-editor-row .form-label { min-width: 0; margin: 0; }
 .allocation-editor-row .icon-button { margin-bottom: 4px; }
 .allocation-editor-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 16px 0; }
@@ -34,7 +34,7 @@
 .monthly-bucket-row select { margin: 0; }
 @media (max-width: 600px) { .monthly-summary, .monthly-filter, .monthly-list { padding-left: 17px; padding-right: 17px; } .monthly-summary strong { font-size: 12px; } .monthly-row { grid-template-columns: 34px minmax(0, 1fr) minmax(65px, 100px); gap: 10px; } .monthly-status { width: 34px; height: 34px; } .monthly-date-grid { grid-template-columns: 1fr; gap: 0; } }
 @media (max-width: 600px) { .monthly-bucket-list { padding: 0 17px; } .monthly-bucket-row { grid-template-columns: 1fr; gap: 8px; } }
-@media (max-width: 400px) { .allocation-editor-row { grid-template-columns: minmax(0, 1fr) 76px 32px; gap: 6px; } }
+@media (max-width: 600px) { .allocation-editor-row { grid-template-columns: repeat(2, minmax(0, 1fr)) 36px; gap: 8px; } .allocation-editor-row > .form-label:first-child { grid-column: 1 / 3; } .allocation-editor-row > .delete-button { grid-column: 3; grid-row: 1; } }
 
 /* Dark-only palette inspired by the supplied reference. All fonts stay offline. */
 :root {
