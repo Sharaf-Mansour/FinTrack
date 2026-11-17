@@ -67,6 +67,10 @@ Implementation defaults: monthly budget limits reset without rollover; actual ac
 
 - [x] 01 — Add optional remaining balances to monthly schedules, update them with linked payment changes, and show them on payment cards. Schema v9 preserves older records and reconciles tracked payments and imports; `bun run build` passes with zero Svelte/TypeScript diagnostics. Tests were not run as requested.
 
+## Fixed mobile viewport — authorized 2026-11-17
+
+- [x] 01 — Disable viewport scaling and pinch-to-zoom on mobile. `index.html` sets `maximum-scale=1` and `user-scalable=no`; `bun test` passes (82 tests / 2,333 assertions), `bun run build` passes with zero Svelte/TypeScript diagnostics, and the production HTML contains the viewport settings.
+
 ## Roadmap status
 
 - [x] Phase 2 — Editable allocation plans and real account/transfer ledgers implemented and automated checks passed. Manual browser/device acceptance remains pending in the human checklist.
@@ -127,3 +131,7 @@ Implementation defaults: monthly budget limits reset without rollover; actual ac
 - `bun run release`: 79 tests / 2,320 assertions pass; Svelte/TypeScript checks and production artifact verification pass with zero warnings/errors. The worker precaches 17 resources (~787 KiB).
 - Browser checks covered allocation CRUD and historical labels, income types, salary reminders, schedule/bucket assignment, explicit payment recording/undo/deletion, cross-month state, exact end-date boundaries, backup merge and 320/390px layouts. Disposable test data was removed.
 - The production preview's service worker controlled the app; an uncached request failed while offline emulation was active, and a schedule was saved and persisted across an offline reload. The test schedule was removed. Actual device installation/airplane mode, hosted CI and Vercel deployment/headers remain pending.
+
+## Viewport verification log — 2026-11-17
+
+- Added a fixed initial scale and disabled user scaling in the viewport metadata. `bun test` passes (82 tests / 2,333 assertions), `bun run build` passes with zero Svelte/TypeScript diagnostics, and the emitted production HTML contains the updated viewport declaration.
