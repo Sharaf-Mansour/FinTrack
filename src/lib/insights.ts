@@ -1,4 +1,4 @@
-import { accountBalances, allocateIncome, isMonth, localDateTime, monthKey, planForMonth, totals, type Ledger, type Wish } from './finance';
+import { accountBalances, allocatePlanIncome, allocationsForMonth, isMonth, localDateTime, monthKey, totals, type Ledger, type Wish } from './finance';
 
 export function shiftMonth(month: string, offset: number): string {
   if (!isMonth(month) || !Number.isInteger(offset)) throw new Error('Invalid month.');
@@ -83,7 +83,7 @@ export function forecastSavings(ledger: Ledger, now: Date, options: ForecastOpti
       if (transfer.occurredAt > asOf) { if (transfer.to === 'savings') knownNetMinor += transfer.amountMinor; if (transfer.from === 'savings') knownNetMinor -= transfer.amountMinor; }
     }
     for (const opening of ledger.openings) if (opening.account === 'savings' && opening.occurredAt > asOf && monthKey(opening.occurredAt) === month) knownNetMinor += opening.amountMinor;
-    const targets = allocateIncome(incomeMinor ?? 0, planForMonth(ledger, month));
+    const targets = allocatePlanIncome(incomeMinor ?? 0, allocationsForMonth(ledger, month));
     const expenses = Math.max(monthlyExpensesMinor, totals(entries).expenses);
     const capacity = Math.max(0, (incomeMinor ?? 0) - expenses - targets.investment);
     const projectedContributionMinor = Math.max(0, Math.min(targets.savings, capacity) - funded);
