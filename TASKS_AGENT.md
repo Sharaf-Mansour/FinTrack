@@ -58,6 +58,15 @@ Implementation defaults: monthly budget limits reset without rollover; actual ac
 - [x] 03 — Add reusable monthly installment tasks with required end dates, salary reminders and explicit payment-to-spending/bucket links with validated backups. `bun run release`: 79 tests / 2,320 assertions, clean Svelte/TypeScript checks and verified production artifacts; browser exercised allocation, income, payments, end dates, backup merge and responsive layout, and production preview saved/reloaded a schedule under offline emulation.
 - [x] 04 — Update the plan, usage/deployment documentation and human acceptance checks with current behavior and verification evidence. README, PLAN, DEPLOYMENT and TASKS_HUMAN describe v7 migration, schedule end dates and pending device/deployment acceptance; `git diff --check` passes.
 
+## Allocation amounts and production loading — authorized 2026-11-17
+
+- [x] 01 — Support percentage or fixed EGP allocations and improve plan-page resilience without changing existing financial records. Fixed-amount support, an older-browser compatibility change and a rendering error boundary are implemented; `bun run build` and Svelte/TypeScript checks pass. Tests were not run as requested. The original phone-specific failure remains unconfirmed without device details.
+- [x] 02 — Allow new and existing monthly schedules to have no end date, without changing dated schedules or recording payments automatically. `bun run build` and Svelte/TypeScript checks pass; tests were not run as requested.
+
+## Monthly remaining balances — authorized 2026-11-17
+
+- [x] 01 — Add optional remaining balances to monthly schedules, update them with linked payment changes, and show them on payment cards. Schema v9 preserves older records and reconciles tracked payments and imports; `bun run build` passes with zero Svelte/TypeScript diagnostics. Tests were not run as requested.
+
 ## Roadmap status
 
 - [x] Phase 2 — Editable allocation plans and real account/transfer ledgers implemented and automated checks passed. Manual browser/device acceptance remains pending in the human checklist.
