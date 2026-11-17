@@ -1,6 +1,6 @@
 # FinTrack
 
-Offline, mobile-first personal finance. Phases 1–4: income, spending, editable allocation plans, account ledgers, ECharts trends, expected income, wishlist forecasts, investment ROI, and JSON backups. Prepared for static Vercel hosting with Bun. No login, API, backend or database dependency.
+Offline, mobile-first personal finance. Phases 1–4: income, spending, editable allocation plans, monthly payments, account ledgers, ECharts trends, expected income, wishlist forecasts, investment ROI, and JSON backups. Prepared for static Vercel hosting with Bun. No login, API, backend or database dependency.
 
 Dark theme only, inspired by the supplied visual reference: near-black (#090a0e), warm gold (#d9b777), warm-white (#e9e4dd), and burgundy (#bc3448). Bold Arial/Helvetica-style typography uses local system fonts so it works offline. Controls, dialogs, app icons, and PWA launch colors follow the same theme, regardless of the device’s light/dark preference. There is no light-mode toggle. The screenshot does not identify an exact font; this is a close visual match.
 
@@ -24,7 +24,7 @@ For Vercel, import the repository with the checked-in `vercel.json`. It uses Bun
 
 ## Use it
 
-Choose a month. Add income or spending with an amount, note and occurrence date/time. Income can be entered more than once a month. Spending categories accept your own text and suggest categories from existing entries. Edit or delete entries in Activity. Totals describe the selected month; they are not a cumulative bank balance.
+Choose a month. Add income or spending with an amount, note and occurrence date/time. Income can be entered more than once a month; choose Salary, Freelance, Business, Bonus, Gift, Other, or enter your own income type. Spending categories accept your own text and suggest categories from existing entries. Edit or delete entries in Activity. Totals describe the selected month; they are not a cumulative bank balance.
 
 Data saves to IndexedDB on this device and browser/origin, in EGP integer piastres. ISO timestamps preserve actual spending and entry creation times separately; display/month grouping follows device-local time. There are no sample financial records, telemetry, external fonts or network API calls. Financial trends are calculated locally.
 
@@ -32,15 +32,21 @@ Use **Backup & data** to export a versioned JSON file. Imports are validated bef
 
 ### Plan & accounts
 
-The default allocation is 55% day-to-day life, 5% fun, 15% savings and 15% investment, leaving **10% unallocated**. Edit percentages in **Plan & accounts**, with up to two decimal places and a total no higher than 100%. Plans take effect by month and remain effective until the next dated plan. Each save adds an immutable revision; the latest revision for a given effective month wins. Editing a future month keeps earlier months unchanged. Editing the current/past effective month intentionally recalculates that month onward until the next dated plan; older versions remain visible in history.
+The default allocation is 55% day-to-day life, 5% fun, 15% savings and 15% investment, leaving **10% unallocated**. In **Plan & accounts**, add, rename, edit or remove allocations, with up to two decimal places and a total no higher than 100%. Custom allocations are spending buckets; the savings and investment targets remain linked to their accounts and can be restored after removal. Plans take effect by month and remain effective until the next dated plan. Each save adds an immutable revision; the latest revision for a given effective month wins. Editing a future month keeps earlier months unchanged. Editing the current/past effective month intentionally recalculates that month onward until the next dated plan; older versions remain visible in history. Removing a bucket never deletes its existing spending.
 
-Monthly budgets use actual income entries only. Limits reset each month without rollover. Allocation uses exact integer arithmetic and largest-remainder rounding so all five amounts add back to income, including tiny amounts. It only recommends allocations: saving a plan never creates money movements. Savings/investment progress shows net transfers in minus out plus direct income minus direct spending in that account; starting funds are excluded.
+Monthly budgets use actual income entries only. Limits reset each month without rollover. Allocation uses exact integer arithmetic and largest-remainder rounding so every allocation plus the unallocated remainder adds back to income, including tiny amounts. It only recommends allocations: saving a plan never creates money movements. Savings/investment progress shows net transfers in minus out plus direct income minus direct spending in that account; starting funds are excluded.
 
-Each income/spending form now has an **Account** field. Spending also has a separate **Budget bucket** (life, fun, unallocated, or unclassified). Category labels remain independent, so you decide how to budget a shopping purchase. Historical expenses remain unclassified until you edit them; **Review spending in Activity** filters those entries for review. They are always included in overall spending.
+Each income/spending form has an **Account** field. Spending also has a separate **Budget bucket**, including custom allocations, unallocated, or unclassified. Category labels remain independent, so you decide how to budget a shopping purchase. Historical expenses remain unclassified until you edit them; **Review spending in Activity** filters those entries for review. They are always included in overall spending. Assign the default bucket for each monthly payment directly in the plan; this does not change already-recorded payments.
 
 Wallet, savings and investment account cards show cumulative balances **through the end of the selected month**. Prior balances carry forward. **Set starting funds** records money held before tracking began, without treating it as income; enter zero to clear that amount. There is one editable starting-funds record per account, effective at the entered date/time. It adds to, rather than replaces, recorded transactions, so do not include income already entered. No money or sample entries are created automatically.
 
 **Transfer** records a real movement you made between two different accounts. It changes both balances equally and leaves income/spending totals unchanged. Transfers can be dated, edited, or deleted with confirmation. A withdrawal from savings is a transfer back to the wallet. Direct spending from savings/investment is also supported through the entry form. Negative balances are allowed to represent real records and flagged for review. These are local records; the app does not connect to banks or move real money. Investment account tracking in Phase 2 does not calculate ROI.
+
+### Monthly spending
+
+Open **Monthly spending** to add an installment or other recurring payment with its amount, category, account, budget bucket, starting month, required end date, and optional day of the month. The task appears each month until its end date. A due day after the end date is not scheduled in the final month; without a due day, the final month remains included. Days 29–31 fall on the last day of shorter months. Older schedules without an end date continue until edited.
+
+Adding a salary opens that month's pending tasks, but does not pay them automatically. Select **Record payment**, confirm the actual amount, date, account and bucket, and the app creates one spending entry for that month. The schedule remains available in later months until it ends; you can add a new schedule for the next plan. Payments can be corrected in Activity, or undone from Monthly spending; undo removes the linked expense. Deleting a schedule keeps recorded expenses. Changes to schedule defaults do not rewrite earlier payments. A linked payment's date must stay in its original month; undo and record it again to move it to another month.
 
 ### Trends
 
@@ -81,9 +87,9 @@ Investment costs/returns are real cash outflows/inflows in the general ledger, s
 
 ### Backup format and migration
 
-Exports use schema **v4**: `entries`, `plans`, `transfers`, `openings`, `expectedIncomes`, `wishlist`, `investments`, and `investmentEvents`. EGP values remain integer piastres. Existing v1/v2/v3 data migrates in memory without discarding or inventing financial records. Mutations read/validate/write in one IndexedDB transaction, retaining simultaneous tab changes without relying on Web Locks. The next successful write commits v4. Legacy missing account means wallet; expense buckets stay unclassified. Export before upgrading, close older app tabs, and apply the update prompt before editing.
+Exports use schema **v7**: `entries`, `plans`, `transfers`, `openings`, `expectedIncomes`, `wishlist`, `investments`, `investmentEvents`, `recurringExpenses`, and `recurringPayments`. Plans include named allocation snapshots. EGP values remain integer piastres. Existing v1–v6 data migrates in memory without discarding or inventing financial records. A v6 schedule's last month becomes its last calendar day; open-ended schedules remain open-ended. Mutations read/validate/write in one IndexedDB transaction, retaining simultaneous tab changes without relying on Web Locks. The next successful write commits v7. Legacy missing account means wallet; expense buckets stay unclassified. Export before upgrading, close older app tabs, and apply the update prompt before editing.
 
-Merge adds new record IDs, keeps current records on matching IDs, current starting funds on matching accounts, and current expected income on matching months. Conflicting plan revisions or mismatched/reused investment cash links reject the whole merge. Replace restores the complete backup; older versions clear newer collections they do not contain. Repeated merges are idempotent. Backup downloads refresh the committed ledger first so they include other tabs’ completed changes.
+Merge adds new record IDs, keeps current records on matching IDs, current starting funds on matching accounts, and current expected income on matching months. Conflicting plan revisions, duplicate monthly payments, or mismatched/reused cash links reject the whole merge. Replace restores the complete backup; older versions clear newer collections they do not contain. Repeated merges are idempotent. Backup downloads refresh the committed ledger first so they include other tabs’ completed changes.
 
 Install through the browser’s native Install action if available. On iOS/iPadOS: Safari → Share → Add to Home Screen. Open the production app online once and let offline preparation finish before disconnecting. The cached app shell then launches offline. An update banner allows you to finish your entry before reloading.
 
@@ -101,13 +107,14 @@ Current verified resolutions: Svelte 5.57.3 · Tailwind 4.3.5 · TypeScript 7.0.
 
 Svelte-check currently needs the TypeScript 6 tooling API alongside TypeScript 7. The alias layout uses `typescript: "^6"` for tooling and `@typescript/native: "npm:typescript@latest"` for compilation. Both Svelte and standalone checks explicitly select TypeScript 7 and all scripts run with Bun.
 
-Verified: 63 Bun tests (2,241 assertions), zero Svelte/TypeScript errors or warnings, production PWA/artifact checks passed, frozen install succeeds, and `bun audit` reports no vulnerabilities. The worker precaches 17 resources (~753 KiB), including dynamic charts. Tests cover ROI examples, unique cash links, corrections/deletion, migration, forecasts, imports and atomic concurrent persistence. Interactive UI, installed/offline launch, hosted CI and Vercel deployment/headers remain **unverified**. The prior browser-origin denial has not been bypassed. Complete `TASKS_HUMAN.md` before relying on the deployment.
+Verified 2026-11-17: `bun run release` passes 79 Bun tests (2,320 assertions), Svelte/TypeScript checks and production PWA/artifact checks. The worker precaches 17 resources (~787 KiB), including dynamic charts. Browser checks exercised allocation editing, income types, monthly payments, end dates, backup merge and responsive views; production preview reloaded and saved a monthly schedule while uncached requests were blocked by offline emulation. Physical-device installation/airplane-mode behavior, hosted CI and Vercel deployment/headers remain unverified. Complete `TASKS_HUMAN.md` before relying on the deployment.
 
 ## Project map
 
 - `src/App.svelte`: screens, entry forms, PWA lifecycle, backup workflows.
 - `src/lib/finance.ts`: data contract, money arithmetic, date helpers, backup validation.
 - `src/lib/FinancePanel.svelte`: allocation editor/history, account balances, starting funds and transfer/account ledgers.
+- `src/lib/recurring.ts` / `src/lib/RecurringPanel.svelte`: monthly schedules, end dates, linked payments and task management.
 - `src/lib/insights.ts`: trend aggregations, local calendar helpers, income assumptions and savings-only forecasts.
 - `src/lib/TrendsPanel.svelte`: chart dashboards, tables, insights and spending drilldown.
 - `src/lib/PlanningPanel.svelte`: expected income, wishlist, priorities and scenario forms.
